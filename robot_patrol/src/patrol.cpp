@@ -25,9 +25,30 @@ private:
   rclcpp::TimerBase::SharedPtr timer_;
 
   std::vector<float> laser_ranges_;
+  float direction_;
 
   void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
     laser_ranges_ = msg->ranges;
+
+    int total = laser_ranges_.size();
+    int start_index = total / 4;
+    int end_index = 3 * total / 4;
+
+    float max_distance = 0.0;
+    int best_index = start_index;
+
+    for (int i = start_index; i < end_index; ++i) {
+      if (std::isfinite(laser_ranges_[i]) && laser_ranges_[i] > max_distance) {
+        max_distance = laser_ranges_[i];
+        best_index = i;
+      }
+    }
+
+    float angle = msg->angle_min + best_index * msg->angle_increment;
+    direction_ = angle;
+
+    RCLCPP_INFO(this->get_logger(), "Safest direction: %.2f rad (%.2f m)",
+                direction_, max_distance);
   }
 
   void controlLoop() {
