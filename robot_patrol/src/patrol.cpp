@@ -35,66 +35,78 @@ private:
     float angle_increment = msg->angle_increment;
     int total = laser_ranges_.size();
 
-    int index_min_90 =
-        std::max(0, static_cast<int>((-M_PI_2 - angle_min) / angle_increment));
-    int index_plus_90 = std::min(
-        total - 1, static_cast<int>((M_PI_2 - angle_min) / angle_increment));
-    int center_index = (index_min_90 + index_plus_90) / 2;
+    float front_angle_range = M_PI / 6; // ≈30 degree
+    // int center_index = (0.0 - angle_min) / angle_increment;
+    int index_front_min =
+        std::max(0, static_cast<int>((-front_angle_range - angle_min) /
+                                     angle_increment));
+    int index_front_max =
+        std::min(total - 1, static_cast<int>((front_angle_range - angle_min) /
+                                             angle_increment));
 
     front_obstacle_ = false;
+    for (int i = index_front_min; i <= index_front_max; ++i) {
+      float distance = laser_ranges_[i];
+      if (std::isfinite(distance) && distance < 0.35) {
+        front_obstacle_ = true;
+        break;
+      }
+    }
 
     float min_distance = std::numeric_limits<float>::infinity();
     int min_index = -1;
-
-    float max_distance = 0.0;
-    int max_index = -1;
-
-    for (int i = index_min_90; i <= index_plus_90; ++i) {
+    for (int i = 0; i < total; ++i) {
       float distance = laser_ranges_[i];
-      if (std::isfinite(distance)) {
-
-        if (distance < 0.35) {
-          front_obstacle_ = true;
-        }
-
-        if (distance < min_distance) {
-          min_distance = distance;
-          min_index = i;
-        }
-
-        if (distance > max_distance) {
-          max_distance = distance;
-          max_index = i;
-        }
+      if (std::isfinite(distance) && distance < min_distance) {
+        min_distance = distance;
+        min_index = i;
       }
     }
 
     float min_angle =
         (min_index != -1) ? angle_min + min_index * angle_increment : 0.0;
 
-    if (front_obstacle_ && min_index != -1) {
-      if (min_index < center_index) {
-        direction_ = fabs(angle_min + max_index * angle_increment);
-      } else {
-        direction_ = -fabs(angle_min + max_index * angle_increment);
+    if (front_obstacle_) {
+      int index_min_90 = std::max(
+          0, static_cast<int>((-M_PI_2 - angle_min) / angle_increment));
+      int index_plus_90 = std::min(
+          total - 1, static_cast<int>((M_PI_2 - angle_min) / angle_increment));
+
+      float max_distance = 0.0;
+      int best_index = -1;
+
+      for (int i = index_min_90; i <= index_plus_90; ++i) {
+        float distance = laser_ranges_[i];
+        if (std::isfinite(distance) && distance > max_distance) {
+          max_distance = distance;
+          best_index = i;
+        }
       }
+
+      if (best_index != -1) {
+        direction_ = angle_min + best_index * angle_increment;
+      } else {
+        direction_ = 0.0;
+      }
+
+      RCLCPP_INFO(this->get_logger(),
+                  "FRONT OBSTACLE! safest direction: %.2f m | degree: %.2f rad",
+                  max_distance, direction_);
     } else {
       direction_ = 0.0;
     }
 
     RCLCPP_INFO(this->get_logger(),
-                "Closest obstacle: %.2f m | Angle: %.2f rad", min_distance,
+                "closest obstacle: %.2f m | degree: %.2f rad ", min_distance,
                 min_angle);
-    RCLCPP_INFO(this->get_logger(), "Rotation direction (direction_): %.2f rad",
-                direction_);
   }
 
   void controlLoop() {
     geometry_msgs::msg::Twist cmd;
 
     if (front_obstacle_) {
-      cmd.linear.x = 0.1;
-      cmd.angular.z = direction_ / 2.0;
+      cmd.linear.x = 0.1 / 2.0;
+      cmd.angular.z = direction_;
     } else {
       cmd.linear.x = 0.1;
       cmd.angular.z = 0.0;
