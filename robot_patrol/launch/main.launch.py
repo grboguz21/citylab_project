@@ -5,16 +5,21 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     rviz_config_path = os.path.join(
-        get_package_share_directory('robot_patrol'),
-        'rviz',
-        'display.rviz'
-    )
+            get_package_share_directory('robot_patrol'),
+            'rviz',
+            'display.rviz')
 
     return LaunchDescription([
         Node(
             package='robot_patrol',
-            executable='patrol',
-            name='patrol_node',
+            executable='direction_service',
+            name='direction_service',
+            output='screen'
+        ),
+        Node(
+            package='robot_patrol',
+            executable='patrol_with_service',
+            name='patrol_with_service',
             output='screen'
         ),
         Node(
@@ -25,3 +30,5 @@ def generate_launch_description():
             arguments=['-d', rviz_config_path]
         )
     ])
+
+
