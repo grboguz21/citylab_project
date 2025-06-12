@@ -96,7 +96,7 @@ private:
                 "Total ranges | Right: %.2f | Front: %.2f | Left: %.2f",
                 total_dist_right, total_dist_front, total_dist_left);
 
-    // Karar mantığı
+    // Decision making
     if (front_clear) {
       response->direction = "forward";
     } else {
